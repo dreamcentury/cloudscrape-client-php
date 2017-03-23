@@ -8,8 +8,8 @@ class CloudScrape {
     private static $client;
 
 
-    public static function init($apiKey, $accountId) {
-        self::$client = new CloudScrapeClient($apiKey, $accountId);
+    public static function init($apiKey, $accountId, $useQueue = false) {
+        self::$client = new CloudScrapeClient($apiKey, $accountId, $useQueue);
     }
 
     /**

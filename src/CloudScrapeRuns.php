@@ -122,7 +122,7 @@ class CloudScrapeRuns {
 	 * Starts new execution of run with given inputs
 	 *
 	 * @param string $runId
-	 * @param object $inputs
+	 * @param array|object $inputs
 	 *
 	 * @return CloudScrapeExecutionDTO
 	 */
@@ -136,19 +136,24 @@ class CloudScrapeRuns {
 	 * - both successful and failed.
 	 *
 	 * @param string $runId
-	 * @param array  $inputs array of input objects
+	 * @param array[]|object[]  $inputs array of input objects
 	 *
 	 * @return CloudScrapeResultDTO
 	 */
-	public function executeBulkSync( $runId, $inputs ) {
-		return $this->client->requestJson( "runs/$runId/execute/bulk/wait", 'POST', $inputs );
+	public function executeBulkSync( $runId, $inputs, $connect = false, $deleteAfter = true ) {
+		$query = http_build_query( array(
+			"connect"     => $connect ? 'true' : 'false',
+			"deleteAfter" => $deleteAfter ? 'true' : 'false',
+		) );
+		
+		return $this->client->requestJson( "runs/$runId/execute/bulk/wait?$query", 'POST', $inputs );
 	}
 	
 	/**
 	 * Starts new execution of run with given inputs
 	 *
 	 * @param string $runId
-	 * @param object $inputs
+	 * @param array[]|object[] $inputs
 	 *
 	 * @return CloudScrapeExecutionDTO
 	 */
@@ -168,10 +173,10 @@ class CloudScrapeRuns {
 	 *
 	 * @return CloudScrapeResultDTO
 	 */
-	public function executeWithInputSync( $runId, $inputs, $connect = 'false', $deleteAfter = 'true' ) {
+	public function executeWithInputSync( $runId, $inputs, $connect = false, $deleteAfter = true ) {
 		$query = http_build_query( array(
-			"connect"     => $connect,
-			"deleteAfter" => $deleteAfter,
+			"connect"     => $connect ? 'true' : 'false',
+			"deleteAfter" => $deleteAfter ? 'true' : 'false',
 		) );
 		
 		return $this->client->requestJson( "runs/$runId/execute/inputs/wait?$query", 'POST', $inputs );

@@ -9,6 +9,13 @@ class CloudScrapeClient {
     private $accessKey;
 
     private $requestTimeout = 3600;
+	
+	private $useQueue = false;
+	private $queue_log_enabled = false;
+	private $queue_lock_name = "CLOUDSCRAPE_CLIENT_REQUEST_QUEUE_LOCK_NAME";
+	private $queue_timeout_ms = 10000;
+	private $queue_limit_count = 1;
+	private $queue_limit_time_ms = 1000;
 
     /**
      * @var CloudScrapeExecutions
@@ -25,16 +32,60 @@ class CloudScrapeClient {
      */
     private $robots;
 
-    function __construct($apiKey, $accountId) {
+    function __construct($apiKey, $accountId, $useQueue = false) {
         $this->apiKey = $apiKey;
         $this->accountId = $accountId;
         $this->accessKey = md5($accountId . $apiKey);
+        
+        $this->setQueueUse( $useQueue );
 
         $this->executions = new CloudScrapeExecutions($this);
         $this->runs = new CloudScrapeRuns($this);
         $this->robots = new CloudScrapeRobots($this);
     }
+	
+    
+	/**
+	 * Sets the use of Queue
+	 * @param bool $use
+	 */
+    public function setQueueUse( bool $use ){
+    	$this->useQueue = (bool) $use;
+	}
+	
+	/**
+	 * Sets the name of the Queue lock
+	 * @param string $name
+	 */
+	public function setQueueLockName( string $name ){
+    	$this->queue_lock_name = $name;
+	}
+	
+	/**
+	 * Sets the timeout of the Queue
+	 * @param int $timeout
+	 */
+	public function setQueueTimeout( int $timeout ){
+		$this->queue_timeout_ms = $timeout;
+	}
+	
+	/**
+	 * Sets the limitcount of the Queue
+	 * @param int $count
+	 */
+	public function setQueueLimitCount( int $count ){
+    	$this->queue_limit_count = $count;
+	}
+	
+	/**
+	 * Sets the limitcount of the Queue
+	 * @param int $time
+	 */
+	public function setQueueLimitTime( int $time ){
+    	$this->queue_limit_time_ms = $time;
+	}
 
+	
     /**
      * Get current request timeout
      * @return int
@@ -129,19 +180,31 @@ class CloudScrapeClient {
             'https' => $requestDetails,
             'http' => $requestDetails
         ));
-        
-        $outRaw = @file_get_contents($this->endPoint . $url, false, $context);
-
-        $out = $this->parseHeaders($http_response_header);
-
-        $out->content = $outRaw;
-
-        if ($out->statusCode < 100 || $out->statusCode > 399) {
-            throw new CloudScrapeRequestException("CloudScrape request failed: $out->statusCode $out->reason", $url, $out);
-        }
-
-        return $out;
+	
+        if( $this->useQueue ){
+        	$Queue = new \PhpSimpleQueue\FileQueue( $this->queue_lock_name, $this->queue_log_enabled, $this->queue_limit_count, $this->queue_limit_time_ms );
+        	$Queue->enterInQueue( $this->queue_timeout_ms, function() use( $url, $context ){
+				return $this->processRequest( $url, $context );
+			}, $output );
+        	return $output;
+		}
+		else{
+			return $this->processRequest( $url, $context );
+		}
     }
+    
+    private function processRequest( $url, $context ){
+		$outRaw = @file_get_contents($this->endPoint . $url, false, $context);
+		$out = $this->parseHeaders($http_response_header);
+	
+		$out->content = $outRaw;
+	
+		if ($out->statusCode < 100 || $out->statusCode > 399) {
+			throw new CloudScrapeRequestException("CloudScrape request failed: $out->statusCode $out->reason", $url, $out);
+		}
+	
+		return $out;
+	}
 
     /**
      * @param string $url
