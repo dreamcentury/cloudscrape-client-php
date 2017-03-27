@@ -11,10 +11,10 @@ class CloudScrapeClient {
     private $requestTimeout = 3600;
 	
 	private $useQueue = false;
-	private $queue_log_enabled = false;
+	private $queue_log_enabled = true;
 	private $queue_lock_name = "CLOUDSCRAPE_CLIENT_REQUEST_QUEUE_LOCK_NAME";
 	private $queue_timeout_ms = 10000;
-	private $queue_limit_count = 1;
+	private $queue_limit_count = 5;
 	private $queue_limit_time_ms = 1000;
 
     /**
@@ -183,9 +183,14 @@ class CloudScrapeClient {
 	
         if( $this->useQueue ){
         	$Queue = new \PhpSimpleQueue\FileQueue( $this->queue_lock_name, $this->queue_log_enabled, $this->queue_limit_count, $this->queue_limit_time_ms );
-        	$Queue->enterInQueue( $this->queue_timeout_ms, function() use( $url, $context ){
+        	$result = $Queue->enterInQueue( $this->queue_timeout_ms, function() use( $url, $context ){
 				return $this->processRequest( $url, $context );
 			}, $output );
+        	
+        	if(empty($output)){
+        		throw new CloudScrapeRequestException( "Failed to execute the Request in Queue mode", $url, (object)["statusCode" => 1] );
+			}
+        	
         	return $output;
 		}
 		else{
