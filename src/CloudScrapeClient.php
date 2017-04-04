@@ -200,6 +200,9 @@ class CloudScrapeClient {
     
     private function processRequest( $url, $context ){
 		$outRaw = @file_get_contents($this->endPoint . $url, false, $context);
+		if( !isset($http_response_header) ){
+			throw new CloudScrapeRequestException("HTTP Response not received", $url, (object)["statusCode" => 0]);
+		}
 		$out = $this->parseHeaders($http_response_header);
 	
 		$out->content = $outRaw;
